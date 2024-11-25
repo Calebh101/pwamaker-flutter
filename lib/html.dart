@@ -1,20 +1,41 @@
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:image/image.dart' as img;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:pwamaker/utils/functions.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-Future<bool> openPwa(BuildContext context, Map data) async {
-  String htmlContent = await rootBundle.loadString("assets/html/pwa.html");
-  String content = replacePlaceholders(htmlContent, data);
-  String url = 'data:text/html;base64,${base64.encode(utf8.encode(content))}';
+Uri baseUrl = Uri.parse("https://calebh101studios.web.app/pwa.html");
 
-  print(url);
-  return true;
+Future<bool> openPwa(BuildContext context, Map data, String icon) async {
+  icon = icon.replaceAll("data:image/png;base64,", "");
+  String url = "${baseUrl.toString()}?data=${jsonEncode(data)}&icon=${Uri.encodeComponent(resizeImage(icon, {"width": 128, "height": 128}))}";
+  bool success = false;
+  try {
+    await launchUrl(Uri.parse(url));
+    print("launched url: $url");
+    success = true;
+  } catch (e) {
+    print("error with url: $e");
+    showAlertDialogue(context, "Unable to launch URL", "Unable to launch URL: $url", false, {"show": true, "text": url});
+    success = false;
+  }
+
+  print("$url: $success");
+  return success;
 }
 
-String replacePlaceholders(String htmlContent, Map data) {
-  data.forEach((key, value) {
-    htmlContent = htmlContent.replaceAll("\${data[\"$key\"]}", value.toString());
-  });
-  return htmlContent;
+String resizeImage(String base64String, Map sizes) {
+  Uint8List decodedBytes = base64Decode(base64String);
+  img.Image? originalImage = img.decodeImage(decodedBytes);
+
+  if (originalImage == null) {
+    throw Exception('Failed to decode image.');
+  }
+
+  img.Image resizedImage = img.copyResize(originalImage, width: sizes["width"], height: sizes["height"]);
+  Uint8List resizedImageBytes = Uint8List.fromList(img.encodePng(resizedImage));
+  String resizedBase64String = base64Encode(resizedImageBytes);
+  return resizedBase64String;
 }
