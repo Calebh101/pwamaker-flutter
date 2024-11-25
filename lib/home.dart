@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pwamaker/html.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -16,6 +17,12 @@ class _HomeState extends State<Home> {
     } else {
       print("other: $id");
     }
+
+    openPwa(context, {
+      "name": "YouTube",
+      "description": "YouTube videos and shorts",
+      "url": "youtube.com",
+    });
   }
 
   List<Map> items = [
