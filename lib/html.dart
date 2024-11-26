@@ -3,14 +3,14 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 
 import 'package:flutter/material.dart';
-import 'package:pwamaker/utils/functions.dart';
+import 'package:personal/dialogue.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 Uri baseUrl = Uri.parse("https://calebh101studios.web.app/pwa.html");
 
-Future<bool> openPwa(BuildContext context, Map data, String icon) async {
+Future<bool> openPwa(BuildContext context, Map data, String icon, int size) async {
   icon = icon.replaceAll("data:image/png;base64,", "");
-  String url = "${baseUrl.toString()}?data=${jsonEncode(data)}&icon=${Uri.encodeComponent(resizeImage(icon, {"width": 128, "height": 128}))}";
+  String url = "${baseUrl.toString()}?data=${jsonEncode(data)}&icon=${Uri.encodeComponent(resizeImage(icon, {"width": size, "height": size}))}";
   bool success = false;
   try {
     await launchUrl(Uri.parse(url));

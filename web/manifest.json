@@ -1,6 +1,6 @@
 {
-    "name": "pwamaker",
-    "short_name": "pwamaker",
+    "name": "PWAmaker",
+    "short_name": "PWAmaker",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#hexcode",

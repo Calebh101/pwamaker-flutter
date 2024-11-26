@@ -1,4 +1,4 @@
-# pwamaker
+# PWAmaker
 
 A new Flutter project.
 
