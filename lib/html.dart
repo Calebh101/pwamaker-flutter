@@ -9,13 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 Uri baseUrl = Uri.parse("https://calebh101studios.web.app/pwa.html");
 
 Future<bool> openPwa(
-    BuildContext context, Map data, String icon, int size) async {
-  icon = icon.replaceAll("data:image/png;base64,", "");
+    BuildContext context, Map data) async {
   String url =
-      "${baseUrl.toString()}?data=${jsonEncode(data)}&icon=${Uri.encodeComponent(resizeImage(icon, {
-        "width": size,
-        "height": size
-      }))}";
+      "${baseUrl.toString()}?data=${jsonEncode(data)}";
   bool success = false;
   try {
     await launchUrl(

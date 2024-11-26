@@ -4,67 +4,13 @@ import 'dart:ui';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:http_server/http_server.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pwamaker/html.dart';
-
-// had ChatGPT make this since I was too lazy lol
-final List<Map<String, dynamic>> appIcons = [
-  {"icon": Icons.home, "text": "Home"},
-  {"icon": Icons.search, "text": "Search"},
-  {"icon": Icons.settings, "text": "Settings"},
-  {"icon": Icons.person, "text": "Profile"},
-  {"icon": Icons.favorite, "text": "Favorites"},
-  {"icon": Icons.notifications, "text": "Notifications"},
-  {"icon": Icons.shopping_cart, "text": "Cart"},
-  {"icon": Icons.chat, "text": "Chat"},
-  {"icon": Icons.camera, "text": "Camera"},
-  {"icon": Icons.map, "text": "Map"},
-  {"icon": Icons.alarm, "text": "Alarm"},
-  {"icon": Icons.book, "text": "Book"},
-  {"icon": Icons.calendar_today, "text": "Calendar"},
-  {"icon": Icons.call, "text": "Call"},
-  {"icon": Icons.email, "text": "Email"},
-  {"icon": Icons.folder, "text": "Folder"},
-  {"icon": Icons.music_note, "text": "Music"},
-  {"icon": Icons.video_library, "text": "Videos"},
-  {"icon": Icons.file_copy, "text": "Files"},
-  {"icon": Icons.lock, "text": "Lock"},
-  {"icon": Icons.share, "text": "Share"},
-  {"icon": Icons.wifi, "text": "Wi-Fi"},
-  {"icon": Icons.bluetooth, "text": "Bluetooth"},
-  {"icon": Icons.cloud, "text": "Cloud"},
-  {"icon": Icons.sunny, "text": "Weather"},
-  {"icon": Icons.battery_full, "text": "Battery"},
-  {"icon": Icons.sports_soccer, "text": "Sports"},
-  {"icon": Icons.directions_car, "text": "Car"},
-  {"icon": Icons.train, "text": "Train"},
-  {"icon": Icons.flight, "text": "Flight"},
-  {"icon": Icons.pets, "text": "Pets"},
-  {"icon": Icons.restaurant, "text": "Restaurant"},
-  {"icon": Icons.coffee, "text": "Coffee"},
-  {"icon": Icons.fitness_center, "text": "Fitness"},
-  {"icon": Icons.local_hospital, "text": "Hospital"},
-  {"icon": Icons.school, "text": "School"},
-  {"icon": Icons.work, "text": "Work"},
-  {"icon": Icons.lightbulb, "text": "Ideas"},
-  {"icon": Icons.security, "text": "Security"},
-  {"icon": Icons.shopping_bag, "text": "Shopping"},
-  {"icon": Icons.code, "text": "Code"},
-  {"icon": Icons.build, "text": "Tools"},
-  {"icon": Icons.brush, "text": "Art"},
-  {"icon": Icons.science, "text": "Science"},
-  {"icon": Icons.gavel, "text": "Legal"},
-  {"icon": Icons.park, "text": "Park"},
-  {"icon": Icons.movie, "text": "Movies"},
-  {"icon": Icons.headphones, "text": "Headphones"},
-  {"icon": Icons.star, "text": "Star"},
-  {"icon": Icons.emoji_emotions, "text": "Emojis"},
-  {"icon": Icons.palette, "text": "Colors"},
-  {"icon": Icons.light_mode, "text": "Light Mode"},
-  {"icon": Icons.dark_mode, "text": "Dark Mode"},
-  {"icon": Icons.account_balance, "text": "Bank"},
-];
+import 'package:pwamaker/var.dart';
 
 Future<bool> open(context, item) async {
   Map title = await encodeOutput(1, item["title"]);
@@ -73,15 +19,112 @@ Future<bool> open(context, item) async {
   Map icon =
       await encodeOutput(3, item["icon"] ?? File('assets/app/icon/icon.png'));
 
+  String id = "28394803284";
+  String fileName = "icon$id.txt";
+
+  Map response = await hostFile(await writeStringToFile(icon["output"]), fileName);
+  String path = "${response["url"]}$fileName";
+
+  print(response);
+  print("serving file at $path");
+
+  //return true;
   return await openPwa(
     context,
     {
       "name": title["output"],
       "desc": desc["output"],
       "url": url["output"], // REQUIRED: protocol included
+      "icon": path, // uses a local file server to get the icon, with no quality loss
     },
-    icon["output"], 32, // REQUIRED: raw base64 string, no data URLs
   );
+}
+
+Future<Map> hostFile(File file, String name) async {
+  print("Hosting file...");
+
+  try {
+    // Ensure the assets directory exists
+    final staticFilesDirectory = Directory('local/assets');
+    if (!await staticFilesDirectory.exists()) {
+      await staticFilesDirectory.create(recursive: true); // Create the directory if it doesn't exist
+    }
+
+    // Save the file to the assets directory
+    final filePath = '${staticFilesDirectory.path}/$name';
+    await file.copy(filePath); // Copy the file to the target path
+    print('File saved at: $filePath');
+
+    // Set up the server URL
+    const hostname = 'localhost';
+    const port = 8425;
+    String url = "http://$hostname:$port/";
+
+    // Check if the server is already running on the same port
+    var serverRunning = false;
+    HttpServer? existingServer;
+
+    // Try to bind to the port
+    try {
+      existingServer = await HttpServer.bind(hostname, port, shared: true);
+      serverRunning = true;
+      print('Server is now running at $url');
+    } catch (e) {
+      if (e is SocketException) {
+        print('Server is already running at $url');
+        serverRunning = true;
+      } else {
+        rethrow;
+      }
+    }
+
+    // If the server was not already running, set it up now
+    if (!serverRunning) {
+      final server = await HttpServer.bind(hostname, port);
+      print('Server is now running at $url');
+
+      // Set up the static file handler
+      final staticFilesHandler = VirtualDirectory(staticFilesDirectory.path)
+        ..allowDirectoryListing = true;
+
+      // Handle incoming requests
+      await for (final request in server) {
+        // Add CORS headers
+        request.response.headers.add('Access-Control-Allow-Origin', '*');
+        request.response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        request.response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+        // Handle OPTIONS requests for CORS pre-flight
+        if (request.method == 'OPTIONS') {
+          request.response.statusCode = HttpStatus.ok;
+          await request.response.close();
+        } else {
+          // Serve the requested file
+          staticFilesHandler.serveRequest(request);
+        }
+      }
+    }
+
+    // Return the URL and port
+    return {"status": true, "port": port, "url": url};
+  } catch (e) {
+    return {"status": false, "error": e.toString()};
+  }
+}
+
+Future<File> writeStringToFile(String content) async {
+  // Get the local directory for storing files
+  final directory = await getApplicationDocumentsDirectory();
+  
+  // Create a file path (for example, "my_file.txt")
+  final filePath = '${directory.path}/my_file.txt';
+  
+  // Create a File object and write the content
+  final file = File(filePath);
+  await file.writeAsString(content);
+
+  // Return the File object
+  return file;
 }
 
 Future<Map> encodeOutput(int mode, dynamic input) async {
@@ -246,12 +289,33 @@ Future<IconData?> selectIcon(context) async {
 
 Future<File?> selectImage(ImageSource source) async {
   final ImagePicker picker = ImagePicker();
-  final XFile? pickedFile = await picker.pickImage(source: source);
+  File? pickedFile;
+  try {
+    XFile? xfile = await picker.pickImage(source: source);
+    if (xfile != null) {
+      pickedFile = File(xfile.path);
+    }
+  } catch (e) {
+    pickedFile = await selectImageFile();
+  }
 
   if (pickedFile != null) {
     return File(pickedFile.path);
   } else {
     print("No image selected");
+    return null;
+  }
+}
+
+Future<File?> selectImageFile() async {
+  FilePickerResult? result = await FilePicker.platform.pickFiles(
+    type: FileType.image,
+  );
+
+  if (result != null) {
+    File file = File(result.files.single.path!);
+    return file;
+  } else {
     return null;
   }
 }
