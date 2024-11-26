@@ -4,8 +4,8 @@ import 'dart:ui';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pwamaker/html.dart';
 
 // had ChatGPT make this since I was too lazy lol
@@ -70,7 +70,8 @@ Future<bool> open(context, item) async {
   Map title = await encodeOutput(1, item["title"]);
   Map desc = await encodeOutput(1, item["desc"]);
   Map url = await encodeOutput(2, item["url"]);
-  Map icon = await encodeOutput(3, item["icon"] ?? File('assets/app/icon/icon.png'));
+  Map icon =
+      await encodeOutput(3, item["icon"] ?? File('assets/app/icon/icon.png'));
 
   return await openPwa(
     context,
@@ -79,7 +80,7 @@ Future<bool> open(context, item) async {
       "desc": desc["output"],
       "url": url["output"], // REQUIRED: protocol included
     },
-    icon["output"], 128, // REQUIRED: raw base64 string, no data URLs
+    icon["output"], 32, // REQUIRED: raw base64 string, no data URLs
   );
 }
 
@@ -151,12 +152,13 @@ Future<Map<String, dynamic>> iconEncodeOutput(int mode, dynamic input) async {
 
   // Convert canvas to an image
   final ui.Image image = await pictureRecorder.endRecording().toImage(
-    canvasSize.toInt(),
-    canvasSize.toInt(),
-  );
+        canvasSize.toInt(),
+        canvasSize.toInt(),
+      );
 
   // Encode the image as PNG
-  final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  final ByteData? byteData =
+      await image.toByteData(format: ui.ImageByteFormat.png);
   if (byteData == null) {
     return {"success": false, "error": "Failed to encode image"};
   }
@@ -242,16 +244,14 @@ Future<IconData?> selectIcon(context) async {
   }
 }
 
-Future<File?> selectImage(context) async {
-  FilePickerResult? result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['png'],
-  );
+Future<File?> selectImage(ImageSource source) async {
+  final ImagePicker picker = ImagePicker();
+  final XFile? pickedFile = await picker.pickImage(source: source);
 
-  if (result != null) {
-    File file = File(result.files.single.path!);
-    return file;
+  if (pickedFile != null) {
+    return File(pickedFile.path);
   } else {
+    print("No image selected");
     return null;
   }
 }

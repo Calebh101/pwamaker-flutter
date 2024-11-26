@@ -8,17 +8,26 @@ import 'package:url_launcher/url_launcher.dart';
 
 Uri baseUrl = Uri.parse("https://calebh101studios.web.app/pwa.html");
 
-Future<bool> openPwa(BuildContext context, Map data, String icon, int size) async {
+Future<bool> openPwa(
+    BuildContext context, Map data, String icon, int size) async {
   icon = icon.replaceAll("data:image/png;base64,", "");
-  String url = "${baseUrl.toString()}?data=${jsonEncode(data)}&icon=${Uri.encodeComponent(resizeImage(icon, {"width": size, "height": size}))}";
+  String url =
+      "${baseUrl.toString()}?data=${jsonEncode(data)}&icon=${Uri.encodeComponent(resizeImage(icon, {
+        "width": size,
+        "height": size
+      }))}";
   bool success = false;
   try {
-    await launchUrl(Uri.parse(url));
+    await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
     print("launched url: $url");
     success = true;
   } catch (e) {
     print("error with url: $e");
-    showAlertDialogue(context, "Unable to launch URL", "Unable to launch URL: $url", false, {"show": true, "text": url});
+    showAlertDialogue(context, "Unable to launch URL",
+        "Unable to launch URL: $url", false, {"show": true, "text": url});
     success = false;
   }
 
@@ -34,7 +43,8 @@ String resizeImage(String base64String, Map sizes) {
     throw Exception('Failed to decode image.');
   }
 
-  img.Image resizedImage = img.copyResize(originalImage, width: sizes["width"], height: sizes["height"]);
+  img.Image resizedImage = img.copyResize(originalImage,
+      width: sizes["width"], height: sizes["height"]);
   Uint8List resizedImageBytes = Uint8List.fromList(img.encodePng(resizedImage));
   String resizedBase64String = base64Encode(resizedImageBytes);
   return resizedBase64String;

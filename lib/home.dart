@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:personal/dialogue.dart';
 import 'package:personal/functions.dart';
 import 'package:pwamaker/item.dart';
@@ -20,6 +21,7 @@ class _HomeState extends State<Home> {
   late List data;
   int globalMode = 1;
   List items = [];
+  bool allowDrag = false;
 
   List actions = [
     {
@@ -35,7 +37,6 @@ class _HomeState extends State<Home> {
       "icon": Icons.download,
     },
   ];
-
 
   void refresh(data) {
     print("refreshing");
@@ -65,7 +66,8 @@ class _HomeState extends State<Home> {
     print("editing item");
     if (id == "new") {
       print("new");
-      Map newItem = await editItem({"title": "", "desc": "", "url": "", "valid": false}, 1);
+      Map newItem = await editItem(
+          {"title": "", "desc": "", "url": "", "valid": false}, 1);
       if (newItem["valid"]) {
         data.add(newItem);
       }
@@ -83,16 +85,20 @@ class _HomeState extends State<Home> {
 
           dynamic jsonData = jsonDecode(content);
           if (jsonData is Map<String, dynamic>) {
-            if (jsonData.containsKey("title") && jsonData.containsKey("desc") && jsonData.containsKey("url")) {
+            if (jsonData.containsKey("title") &&
+                jsonData.containsKey("desc") &&
+                jsonData.containsKey("url")) {
               data.add(jsonData);
               showSnackBar(context, "New item imported");
               refresh(data);
             } else {
-              print("jsonData failed check 3: contains(title,desc,url): ${jsonData.containsKey("title")}${jsonData.containsKey("desc")}${jsonData.containsKey("url")}");
+              print(
+                  "jsonData failed check 3: contains(title,desc,url): ${jsonData.containsKey("title")}${jsonData.containsKey("desc")}${jsonData.containsKey("url")}");
               showSnackBar(context, "Unsupported file type");
             }
           } else {
-            print("jsonData failed check 2: jsonData is ${jsonData.runtimeType}");
+            print(
+                "jsonData failed check 2: jsonData is ${jsonData.runtimeType}");
             showSnackBar(context, "Unsupported file type");
           }
         } else {
@@ -139,7 +145,11 @@ class _HomeState extends State<Home> {
 
   void initState() {
     init();
-    showFirstTimeDialogue(context, "Welcome to PWAmaker!", "PWAmaker is an app that lets you create, share, and install websites, but as apps. You will input a title, like YouTube, a description (which is optional), and a URL (which can be something like youtube.com). You can then input an optional icon, and now you have your website. Simply press the install button, and follow the next steps to see your new app.", false);
+    showFirstTimeDialogue(
+        context,
+        "Welcome to PWAmaker!",
+        "PWAmaker is an app that lets you create, share, and install websites, but as apps. You will input a title, like YouTube, a description (which is optional), and a URL (which can be something like youtube.com). You can then input an optional icon, and now you have your website. Simply press the install button, and follow the next steps to see your new app.",
+        false);
     super.initState();
   }
 
@@ -160,13 +170,19 @@ class _HomeState extends State<Home> {
     bool useValues = false;
     dynamic icon;
 
-    final TextEditingController stringController = TextEditingController(text: item["title"]);
-    final TextEditingController descController = TextEditingController(text: item["desc"]);
-    final TextEditingController urlController = TextEditingController(text: item["url"]);
+    final TextEditingController stringController =
+        TextEditingController(text: item["title"]);
+    final TextEditingController descController =
+        TextEditingController(text: item["desc"]);
+    final TextEditingController urlController =
+        TextEditingController(text: item["url"]);
 
     bool validOptions() {
-      bool valuesNotEmpty = stringController.text != "" && urlController.text != "";
-      bool lengthCorrect = verifyInputLength(stringController.text, 12) && verifyInputLength(descController.text, 32) && verifyInputLength(urlController.text, 20);
+      bool valuesNotEmpty =
+          stringController.text != "" && urlController.text != "";
+      bool lengthCorrect = verifyInputLength(stringController.text, 12) &&
+          verifyInputLength(descController.text, 32) &&
+          verifyInputLength(urlController.text, 20);
       return valuesNotEmpty && lengthCorrect;
     }
 
@@ -213,14 +229,18 @@ class _HomeState extends State<Home> {
                         case "Built-in icon":
                           icon = await selectIcon(context);
                         case "Custom icon":
-                          icon = await selectImage(context);
+                          icon = await selectImage(ImageSource.gallery);
                         case "No icon":
                           icon = null;
                       }
                     },
                     itemBuilder: (BuildContext context) {
-                      return ['Built-in icon', 'Custom icon', 'No icon', 'Cancel']
-                          .map((String action) {
+                      return [
+                        'Built-in icon',
+                        'Custom icon',
+                        'No icon',
+                        'Cancel'
+                      ].map((String action) {
                         return PopupMenuItem<String>(
                           value: action,
                           child: Text(action),
@@ -257,11 +277,13 @@ class _HomeState extends State<Home> {
 
     if (useValues && validOptions()) {
       print("edit item: using values");
-      
-      String desc;
-      var iconS = await encodeOutput(3, icon ?? item["icon"] ?? Icons.question_mark);
 
-      String name = stringController.text == '' ? item["title"] : stringController.text;
+      String desc;
+      var iconS =
+          await encodeOutput(3, icon ?? item["icon"] ?? Icons.question_mark);
+
+      String name =
+          stringController.text == '' ? item["title"] : stringController.text;
       String url = urlController.text == '' ? item["url"] : urlController.text;
 
       if (descController.text == '') {
@@ -283,6 +305,7 @@ class _HomeState extends State<Home> {
     }
 
     print("edit item: complete");
+    FocusScope.of(context).unfocus();
     return item;
   }
 
@@ -328,42 +351,44 @@ class _HomeState extends State<Home> {
                 itemCount: data.length,
                 itemBuilder: (context, index) {
                   Map item = data[index];
-                  return DragTarget<Map>(
-                    onWillAcceptWithDetails: (dragData) {
-                      return true;
-                    },
-                    onAcceptWithDetails: (dragData) {
-                      int oldIndex = draggedIndex! - actions.length;
-                      int newIndex = index - actions.length;
-                      print("oldIndex,newIndex,draggedIndex: $oldIndex,$newIndex,$draggedIndex");
+                  return DragTarget<Map>(onWillAcceptWithDetails: (dragData) {
+                    return true;
+                  }, onAcceptWithDetails: (dragData) {
+                    int oldIndex = draggedIndex! - actions.length;
+                    int newIndex = index - actions.length;
+                    print(
+                        "oldIndex,newIndex,draggedIndex: $oldIndex,$newIndex,$draggedIndex");
 
-                      if (newIndex >= 0) {
-                        items = _onDragCompleted(oldIndex, newIndex, items);
-                        refresh(items);
-                      }
-                    },
-                    builder: (context, candidateData, rejectedData) { 
-                      return index >= actions.length ? Draggable<Map>(
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: _buildGridTile(2, index, data, item),
-                        ),
-                        data: data[index],
-                        onDragStarted: () {
-                          draggedIndex = index; // Store the index of the dragged item
-                        },
-                        onDragCompleted: () {
-                          draggedIndex = null; // Reset index after drag is completed
-                        },
-                        onDraggableCanceled: (_, __) {
-                          draggedIndex = null; // Reset index if drag is canceled
-                        },
-                        child: GridTile(
-                          child: _buildGridTile(1, index, data, item),
-                        ),
-                      ) : _buildGridTile(1, index, data, item);
+                    if (newIndex >= 0) {
+                      items = _onDragCompleted(oldIndex, newIndex, items);
+                      refresh(items);
                     }
-                  );
+                  }, builder: (context, candidateData, rejectedData) {
+                    return index >= actions.length && allowDrag
+                        ? Draggable<Map>(
+                            feedback: Material(
+                              color: Colors.transparent,
+                              child: _buildGridTile(2, index, data, item),
+                            ),
+                            data: data[index],
+                            onDragStarted: () {
+                              draggedIndex =
+                                  index; // Store the index of the dragged item
+                            },
+                            onDragCompleted: () {
+                              draggedIndex =
+                                  null; // Reset index after drag is completed
+                            },
+                            onDraggableCanceled: (_, __) {
+                              draggedIndex =
+                                  null; // Reset index if drag is canceled
+                            },
+                            child: GridTile(
+                              child: _buildGridTile(1, index, data, item),
+                            ),
+                          )
+                        : _buildGridTile(1, index, data, item);
+                  });
                 },
               ),
             ),
@@ -392,7 +417,10 @@ class _HomeState extends State<Home> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(height: mode == 2 ? 12 : 0),
-                    circleAvatar2(getIconFromInput(item["icon"] ?? Icons.question_mark, 48), 24),
+                    circleAvatar2(
+                        getIconFromInput(
+                            item["icon"] ?? Icons.question_mark, 48),
+                        24),
                     SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6.0),
@@ -409,7 +437,8 @@ class _HomeState extends State<Home> {
                         children: [
                           if (item.containsKey("url"))
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 6.0),
                               child: Text(
                                 item["url"],
                                 style: TextStyle(
@@ -419,7 +448,8 @@ class _HomeState extends State<Home> {
                             ),
                           SizedBox(height: 4),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 6.0),
                             child: Text(
                               item["desc"],
                               style: TextStyle(
