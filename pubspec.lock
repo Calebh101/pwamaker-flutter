@@ -307,9 +307,11 @@ packages:
   personal:
     dependency: "direct main"
     description:
-      path: "/localpkg"
-      relative: false
-    source: path
+      path: "."
+      ref: main
+      resolved-ref: "23125c0cb46378a4e29a35b0f043ea077cd49602"
+      url: "https://github.com/Calebh101/localpkg-flutter"
+    source: git
     version: "1.0.0"
   petitparser:
     dependency: transitive
