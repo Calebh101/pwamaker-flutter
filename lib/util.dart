@@ -15,6 +15,7 @@ import 'package:pwamaker/html.dart';
 import 'package:pwamaker/var.dart';
 
 Future<bool> open(context, item) async {
+  bool openIconUrlDebug = true;
   Map title = await encodeOutput(1, item["title"]);
   Map desc = await encodeOutput(1, item["desc"]);
   Map url = await encodeOutput(2, item["url"]);
@@ -34,16 +35,21 @@ Future<bool> open(context, item) async {
   _testUrl(path);
 
   if (response["status"]) {
-    return await openPwa(
-      context,
-      {
-        "name": title["output"],
-        "desc": desc["output"],
-        "url": url["output"], // REQUIRED: protocol included
-        "icon":
-            path, // uses a local file server to get the icon, with no quality loss
-      },
-    );
+    // ignore: dead_code
+    if (!openIconUrlDebug) {
+      return await openPwa(
+        context,
+        {
+          "name": title["output"],
+          "desc": desc["output"],
+          "url": url["output"], // REQUIRED: protocol included
+          "icon": path,
+        },
+      );
+    } else {
+      openUrlConf(context, Uri.parse(path));
+      return true;
+    }
   } else {
     showAlertDialogue(
         context,
@@ -112,20 +118,30 @@ Future<Map> hostFile(File file, String name, int port) async {
 
 void handleRequests(server, staticFilesHandler) async {
   await for (final request in server) {
-    // Add CORS headers
-    request.response.headers.add('Access-Control-Allow-Origin', '*');
-    request.response.headers
-        .add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    request.response.headers
-        .add('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    try {
+      print('incoming request: ${request.uri}');
 
-    // Handle OPTIONS requests for CORS pre-flight
-    if (request.method == 'OPTIONS') {
-      request.response.statusCode = HttpStatus.ok;
-      await request.response.close();
-    } else {
-      // Serve the requested file
-      staticFilesHandler.serveRequest(request);
+      // Add CORS headers
+      request.response.headers.add('Access-Control-Allow-Origin', '*');
+      request.response.headers
+          .add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      request.response.headers
+          .add('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+      // Handle OPTIONS requests for CORS pre-flight
+      if (request.method == 'OPTIONS') {
+        print("outgoing options: ${request.uri}");
+        request.response.statusCode = HttpStatus.ok;
+        await request.response.close();
+      } else {
+        // Serve the requested file
+        print('outgoing serve: ${request.uri}');
+        staticFilesHandler.serveRequest(request);
+      }
+
+      print("success with request: ${request.uri}");
+    } catch (e) {
+      print("unable to handle incoming request from ${request.uri}: $e");
     }
   }
 }
