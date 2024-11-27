@@ -6,9 +6,11 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:http_server/http_server.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:personal/dialogue.dart';
 import 'package:pwamaker/html.dart';
 import 'package:pwamaker/var.dart';
 
@@ -21,104 +23,120 @@ Future<bool> open(context, item) async {
 
   String id = "28394803284";
   String fileName = "icon$id.txt";
+  int port = 8425;
 
-  Map response = await hostFile(await writeStringToFile(icon["output"]), fileName);
+  Map response =
+      await hostFile(await writeStringToFile(icon["output"]), fileName, port);
   String path = "${response["url"]}$fileName";
 
   print(response);
   print("serving file at $path");
+  _testUrl(path);
 
-  //return true;
-  return await openPwa(
-    context,
-    {
-      "name": title["output"],
-      "desc": desc["output"],
-      "url": url["output"], // REQUIRED: protocol included
-      "icon": path, // uses a local file server to get the icon, with no quality loss
-    },
-  );
+  if (response["status"]) {
+    return await openPwa(
+      context,
+      {
+        "name": title["output"],
+        "desc": desc["output"],
+        "url": url["output"], // REQUIRED: protocol included
+        "icon":
+            path, // uses a local file server to get the icon, with no quality loss
+      },
+    );
+  } else {
+    showAlertDialogue(
+        context,
+        "There was an error opening your PWA.",
+        "There was an error creating the http server: $response",
+        false,
+        {"show": true});
+    return false;
+  }
 }
 
-Future<Map> hostFile(File file, String name) async {
+Future<bool> _testUrl(url) async {
+  print("testing url: $url");
+  bool test = await testUrl(url);
+  print("tested url: $test");
+  return test;
+}
+
+Future<Map> hostFile(File file, String name, int port) async {
   print("Hosting file...");
 
   try {
-    // Ensure the assets directory exists
-    final staticFilesDirectory = Directory('local/assets');
+    // Get the application documents directory
+    final directory = await getApplicationDocumentsDirectory();
+
+    // Create the 'assets' subdirectory inside the app's documents directory
+    final staticFilesDirectory = Directory('${directory.path}/assets');
     if (!await staticFilesDirectory.exists()) {
-      await staticFilesDirectory.create(recursive: true); // Create the directory if it doesn't exist
+      await staticFilesDirectory.create(recursive: true);
     }
 
     // Save the file to the assets directory
     final filePath = '${staticFilesDirectory.path}/$name';
-    await file.copy(filePath); // Copy the file to the target path
+    await file.copy(filePath);
     print('File saved at: $filePath');
 
     // Set up the server URL
     const hostname = 'localhost';
-    const port = 8425;
     String url = "http://$hostname:$port/";
 
-    // Check if the server is already running on the same port
-    var serverRunning = false;
-    HttpServer? existingServer;
+    // Set up the static file handler
+    final staticFilesHandler = VirtualDirectory(staticFilesDirectory.path)
+      ..allowDirectoryListing = true;
 
-    // Try to bind to the port
+    // Try binding to the server. If port is in use, increment the port number.
+    late HttpServer server;
     try {
-      existingServer = await HttpServer.bind(hostname, port, shared: true);
-      serverRunning = true;
+      server = await HttpServer.bind(hostname, port, shared: true);
       print('Server is now running at $url');
     } catch (e) {
       if (e is SocketException) {
-        print('Server is already running at $url');
-        serverRunning = true;
+        // If the port is in use, try a different port (or handle accordingly)
+        print('Port $port is already in use. Trying a different port...');
+        return await hostFile(file, name, port + 1);
       } else {
-        rethrow;
+        rethrow; // Rethrow other exceptions
       }
     }
 
-    // If the server was not already running, set it up now
-    if (!serverRunning) {
-      final server = await HttpServer.bind(hostname, port);
-      print('Server is now running at $url');
-
-      // Set up the static file handler
-      final staticFilesHandler = VirtualDirectory(staticFilesDirectory.path)
-        ..allowDirectoryListing = true;
-
-      // Handle incoming requests
-      await for (final request in server) {
-        // Add CORS headers
-        request.response.headers.add('Access-Control-Allow-Origin', '*');
-        request.response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        request.response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-        // Handle OPTIONS requests for CORS pre-flight
-        if (request.method == 'OPTIONS') {
-          request.response.statusCode = HttpStatus.ok;
-          await request.response.close();
-        } else {
-          // Serve the requested file
-          staticFilesHandler.serveRequest(request);
-        }
-      }
-    }
-
-    // Return the URL and port
+    handleRequests(server, staticFilesHandler);
     return {"status": true, "port": port, "url": url};
   } catch (e) {
     return {"status": false, "error": e.toString()};
   }
 }
 
+void handleRequests(server, staticFilesHandler) async {
+  await for (final request in server) {
+    // Add CORS headers
+    request.response.headers.add('Access-Control-Allow-Origin', '*');
+    request.response.headers
+        .add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    request.response.headers
+        .add('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    // Handle OPTIONS requests for CORS pre-flight
+    if (request.method == 'OPTIONS') {
+      request.response.statusCode = HttpStatus.ok;
+      await request.response.close();
+    } else {
+      // Serve the requested file
+      staticFilesHandler.serveRequest(request);
+    }
+  }
+}
+
 Future<File> writeStringToFile(String content) async {
   // Get the local directory for storing files
   final directory = await getApplicationDocumentsDirectory();
-  
+
   // Create a file path (for example, "my_file.txt")
-  final filePath = '${directory.path}/my_file.txt';
-  
+  final filePath = '${directory.path}/file.txt';
+
   // Create a File object and write the content
   final file = File(filePath);
   await file.writeAsString(content);
@@ -146,6 +164,32 @@ Map imgEncodeOutput(int mode, dynamic input) {
     return {"success": true, "output": base64String};
   } else {
     return {"success": false, "output": input, "error": "unknown mode"};
+  }
+}
+
+Future<bool> testUrl(String url) async {
+  try {
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      print(
+          "success with response: ${truncateWithEllipsis(response.body, 40)}");
+      return true;
+    } else {
+      print("fail with status code: ${response.statusCode}");
+      return false;
+    }
+  } catch (e) {
+    print("fail with error: $e");
+    return false;
+  }
+}
+
+String truncateWithEllipsis(String str, int maxLength) {
+  if (str.length > maxLength) {
+    return '${str.substring(0, maxLength)}...';
+  } else {
+    return str;
   }
 }
 

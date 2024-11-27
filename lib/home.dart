@@ -364,7 +364,9 @@ class _HomeState extends State<Home> {
                       refresh(items);
                     }
                   }, builder: (context, candidateData, rejectedData) {
-                    return index >= actions.length && allowDrag
+                    return index >= actions.length &&
+                            globalMode == 2 &&
+                            allowDrag
                         ? Draggable<Map>(
                             feedback: Material(
                               color: Colors.transparent,
