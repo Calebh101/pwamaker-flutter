@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
-import 'package:image/image.dart' as img;
 
 import 'package:flutter/material.dart';
 import 'package:personal/dialogue.dart';
@@ -8,10 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 Uri baseUrl = Uri.parse("https://calebh101studios.web.app/pwa.html");
 
-Future<bool> openPwa(
-    BuildContext context, Map data) async {
-  String url =
-      "${baseUrl.toString()}?data=${jsonEncode(data)}";
+Future<bool> openPwa(BuildContext context, Map data) async {
+  String url = "${baseUrl.toString()}?data=${jsonEncode(data)}";
   bool success = false;
   try {
     await launchUrl(
@@ -29,19 +25,4 @@ Future<bool> openPwa(
 
   print("$url: $success");
   return success;
-}
-
-String resizeImage(String base64String, Map sizes) {
-  Uint8List decodedBytes = base64Decode(base64String);
-  img.Image? originalImage = img.decodeImage(decodedBytes);
-
-  if (originalImage == null) {
-    throw Exception('Failed to decode image.');
-  }
-
-  img.Image resizedImage = img.copyResize(originalImage,
-      width: sizes["width"], height: sizes["height"]);
-  Uint8List resizedImageBytes = Uint8List.fromList(img.encodePng(resizedImage));
-  String resizedBase64String = base64Encode(resizedImageBytes);
-  return resizedBase64String;
 }

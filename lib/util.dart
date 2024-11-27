@@ -6,28 +6,32 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:http_server/http_server.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:personal/dialogue.dart';
 import 'package:pwamaker/html.dart';
 import 'package:pwamaker/var.dart';
+import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
+import 'package:url_launcher/url_launcher.dart';
 
 Future<bool> open(context, item) async {
-  bool openIconUrlDebug = true;
+  bool openIconUrlDebug = false;
   Map title = await encodeOutput(1, item["title"]);
   Map desc = await encodeOutput(1, item["desc"]);
   Map url = await encodeOutput(2, item["url"]);
   Map icon =
       await encodeOutput(3, item["icon"] ?? File('assets/app/icon/icon.png'));
 
-  String id = "28394803284";
-  String fileName = "icon$id.txt";
+  String fileName = "icon.txt";
   int port = 8425;
 
-  Map response =
-      await hostFile(await writeStringToFile(icon["output"]), fileName, port);
+  Map response = await hostFile(
+      await writeStringToFile(
+          resizeImage(icon["output"], {"width": 256, "height": 256})),
+      fileName,
+      port);
   String path = "${response["url"]}$fileName";
 
   print(response);
@@ -46,8 +50,12 @@ Future<bool> open(context, item) async {
           "icon": path,
         },
       );
+      // ignore: dead_code
     } else {
-      openUrlConf(context, Uri.parse(path));
+      await launchUrl(
+        Uri.parse(path),
+        mode: LaunchMode.externalApplication, // Ensures the browser is used
+      );
       return true;
     }
   } else {
@@ -378,4 +386,19 @@ Future<File?> selectImageFile() async {
   } else {
     return null;
   }
+}
+
+String resizeImage(String base64String, Map sizes) {
+  Uint8List decodedBytes = base64Decode(base64String);
+  img.Image? originalImage = img.decodeImage(decodedBytes);
+
+  if (originalImage == null) {
+    throw Exception('Failed to decode image.');
+  }
+
+  img.Image resizedImage = img.copyResize(originalImage,
+      width: sizes["width"], height: sizes["height"]);
+  Uint8List resizedImageBytes = Uint8List.fromList(img.encodePng(resizedImage));
+  String resizedBase64String = base64Encode(resizedImageBytes);
+  return resizedBase64String;
 }
