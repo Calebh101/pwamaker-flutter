@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http_server/http_server.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,8 +17,10 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:url_launcher/url_launcher.dart';
 
+bool useHttps = false;
+bool openIconUrlDebug = false;
+
 Future<bool> open(context, item) async {
-  bool openIconUrlDebug = false;
   Map title = await encodeOutput(1, item["title"]);
   Map desc = await encodeOutput(1, item["desc"]);
   Map url = await encodeOutput(2, item["url"]);
@@ -32,7 +35,7 @@ Future<bool> open(context, item) async {
           resizeImage(icon["output"], {"width": 256, "height": 256})),
       fileName,
       port);
-  String path = "${response["url"]}$fileName";
+  String path = "${response["url"]}$fileName/";
 
   print(response);
   print("serving file at $path");
@@ -96,7 +99,7 @@ Future<Map> hostFile(File file, String name, int port) async {
 
     // Set up the server URL
     const hostname = 'localhost';
-    String url = "http://$hostname:$port/";
+    String url = "http${useHttps ? "s" : ""}://$hostname:$port/";
 
     // Set up the static file handler
     final staticFilesHandler = VirtualDirectory(staticFilesDirectory.path)
@@ -105,7 +108,27 @@ Future<Map> hostFile(File file, String name, int port) async {
     // Try binding to the server. If port is in use, increment the port number.
     late HttpServer server;
     try {
-      server = await HttpServer.bind(hostname, port, shared: true);
+      if (useHttps) {
+        // Load the certificate and key as strings from the asset bundle
+        final cert = await rootBundle.loadString('assets/cert/localhost.crt');
+        final key = await rootBundle.loadString('assets/cert/localhost.key');
+
+        // Create temporary files to hold the certificate and key
+        final certFile = File('${Directory.systemTemp.path}/localhost.crt')
+          ..writeAsStringSync(cert);
+        final keyFile = File('${Directory.systemTemp.path}/localhost.key')
+          ..writeAsStringSync(key);
+
+        // Create a SecurityContext and load the certificate and key
+        final securityContext = SecurityContext()
+          ..useCertificateChain(certFile.path)
+          ..usePrivateKey(keyFile.path);
+
+        server = await HttpServer.bindSecure(hostname, port, securityContext,
+            shared: true);
+      } else {
+        server = await HttpServer.bind(hostname, port, shared: true);
+      }
       print('Server is now running at $url');
     } catch (e) {
       if (e is SocketException) {
@@ -130,11 +153,12 @@ void handleRequests(server, staticFilesHandler) async {
       print('incoming request: ${request.uri}');
 
       // Add CORS headers
-      request.response.headers.add('Access-Control-Allow-Origin', '*');
-      request.response.headers
-          .add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      request.response.headers
-          .add('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      request.response
+        ..headers.add('Access-Control-Allow-Origin', '*')
+        ..headers.add(
+            'Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        ..headers.add('Access-Control-Allow-Headers', '*')
+        ..headers.add('Access-Control-Allow-Credentials', 'true');
 
       // Handle OPTIONS requests for CORS pre-flight
       if (request.method == 'OPTIONS') {
