@@ -16,8 +16,10 @@ import 'package:pwamaker/var.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 bool useHttps = false;
+bool useHttpsUrl = false;
 bool openIconUrlDebug = false;
 
 Future<bool> open(context, item) async {
@@ -27,15 +29,16 @@ Future<bool> open(context, item) async {
   Map icon =
       await encodeOutput(3, item["icon"] ?? File('assets/app/icon/icon.png'));
 
-  String fileName = "icon.txt";
+  String extension = "png";
+  String fileName = "icon.$extension";
   int port = 8425;
 
   Map response = await hostFile(
       await writeStringToFile(
-          resizeImage(icon["output"], {"width": 256, "height": 256})),
+          resizeImage(icon["output"], {"width": 256, "height": 256}), extension),
       fileName,
       port);
-  String path = "${response["url"]}$fileName/";
+  String path = "${response["url"]}$fileName";
 
   print(response);
   print("serving file at $path");
@@ -99,7 +102,7 @@ Future<Map> hostFile(File file, String name, int port) async {
 
     // Set up the server URL
     const hostname = 'localhost';
-    String url = "http${useHttps ? "s" : ""}://$hostname:$port/";
+    String url = "http${useHttpsUrl ? "s" : ""}://$hostname:$port/";
 
     // Set up the static file handler
     final staticFilesHandler = VirtualDirectory(staticFilesDirectory.path)
@@ -140,19 +143,18 @@ Future<Map> hostFile(File file, String name, int port) async {
       }
     }
 
-    handleRequests(server, staticFilesHandler);
+    handleRequests(server, staticFilesHandler, filePath);
     return {"status": true, "port": port, "url": url};
   } catch (e) {
     return {"status": false, "error": e.toString()};
   }
 }
 
-void handleRequests(server, staticFilesHandler) async {
+void handleRequests(HttpServer server, dynamic staticFilesHandler, String filePath) async {
   await for (final request in server) {
     try {
       print('incoming request: ${request.uri}');
 
-      // Add CORS headers
       request.response
         ..headers.add('Access-Control-Allow-Origin', '*')
         ..headers.add(
@@ -160,37 +162,54 @@ void handleRequests(server, staticFilesHandler) async {
         ..headers.add('Access-Control-Allow-Headers', '*')
         ..headers.add('Access-Control-Allow-Credentials', 'true');
 
-      // Handle OPTIONS requests for CORS pre-flight
       if (request.method == 'OPTIONS') {
         print("outgoing options: ${request.uri}");
+        printResponse(true, request, null, "options");
         request.response.statusCode = HttpStatus.ok;
         await request.response.close();
       } else {
-        // Serve the requested file
-        print('outgoing serve: ${request.uri}');
-        staticFilesHandler.serveRequest(request);
+        final file = File(filePath);
+        if (await file.exists()) {
+          print('Outgoing serve: ${request.uri}');
+          printResponse(true, request, null, "serve");
+          staticFilesHandler.serveRequest(request);
+        } else {
+          print('File not found: ${request.uri}');
+          printResponse(false, request, "404", "serve");
+          request.response
+            ..statusCode = HttpStatus.notFound
+            ..write('404');
+          await request.response.close();
+        }
       }
-
-      print("success with request: ${request.uri}");
     } catch (e) {
-      print("unable to handle incoming request from ${request.uri}: $e");
+      print("unable to handle incoming request from ${request.uri}");
+      printResponse(false, request, e.toString(), "generic");
+      request.response
+        ..statusCode = HttpStatus.internalServerError
+        ..write('500');
+      await request.response.close();
     }
   }
 }
 
-Future<File> writeStringToFile(String content) async {
-  // Get the local directory for storing files
-  final directory = await getApplicationDocumentsDirectory();
+void printResponse(bool success, request, String? error, String type) {
+  if (success) {
+    print("$type request successful: ${request.uri}");
+  } else {
+    print("$type request unsuccessful: ${request.uri}${error != null ? ": ${error}" : ""}");
+  }
+}
 
-  // Create a file path (for example, "my_file.txt")
-  final filePath = '${directory.path}/file.txt';
+Future<File> writeStringToFile(String content, String extension) async {
+  Uint8List imageBytes = base64Decode(content);
 
-  // Create a File object and write the content
-  final file = File(filePath);
-  await file.writeAsString(content);
+  String fileName = '${Uuid().v4()}.${extension}';
+  final directory = await getTemporaryDirectory();
+  final filePath = '${directory.path}/$fileName';
 
-  // Return the File object
-  return file;
+  File file = File(filePath);
+  return await file.writeAsBytes(imageBytes);
 }
 
 Future<Map> encodeOutput(int mode, dynamic input) async {

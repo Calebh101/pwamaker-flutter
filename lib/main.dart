@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:quick_navbar/quick_navbar.dart';
 import 'home.dart';
 import 'settings.dart';
 
@@ -23,7 +24,18 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: InitPage(),
+      home: QuickNavBar(items: [
+        {
+          "label": "Home",
+          "icon": Icons.home,
+          "widget": Home(),
+        },
+        {
+          "label": "Settings",
+          "icon": Icons.settings,
+          "widget": Settings(),
+        },
+      ], selectedColor: Colors.deepOrange),
     );
   }
 }
