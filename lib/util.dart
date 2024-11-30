@@ -170,11 +170,11 @@ void handleRequests(HttpServer server, dynamic staticFilesHandler, String filePa
       } else {
         final file = File(filePath);
         if (await file.exists()) {
-          print('Outgoing serve: ${request.uri}');
+          print('outgoing serve: ${request.uri}');
           printResponse(true, request, null, "serve");
           staticFilesHandler.serveRequest(request);
         } else {
-          print('File not found: ${request.uri}');
+          print('file not found: ${request.uri}');
           printResponse(false, request, "404", "serve");
           request.response
             ..statusCode = HttpStatus.notFound
