@@ -2,16 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http_server/http_server.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:personal/dialogue.dart';
-import 'package:pwamaker/html.dart';
 import 'package:pwamaker/var.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
@@ -21,6 +18,8 @@ import 'package:uuid/uuid.dart';
 bool useHttps = false;
 bool useHttpsUrl = false;
 bool openIconUrlDebug = false;
+
+Uri baseUrl = Uri.parse("https://calebh101studios.web.app/pwa.html");
 
 Future<bool> open(context, item) async {
   Map title = await encodeOutput(1, item["title"]);
@@ -35,7 +34,8 @@ Future<bool> open(context, item) async {
 
   Map response = await hostFile(
       await writeStringToFile(
-          resizeImage(icon["output"], {"width": 256, "height": 256}), extension),
+          resizeImage(icon["output"], {"width": 256, "height": 256}),
+          extension),
       fileName,
       port);
   String path = "${response["url"]}$fileName";
@@ -80,125 +80,6 @@ Future<bool> _testUrl(url) async {
   bool test = await testUrl(url);
   print("tested url: $test");
   return test;
-}
-
-Future<Map> hostFile(File file, String name, int port) async {
-  print("Hosting file...");
-
-  try {
-    // Get the application documents directory
-    final directory = await getApplicationDocumentsDirectory();
-
-    // Create the 'assets' subdirectory inside the app's documents directory
-    final staticFilesDirectory = Directory('${directory.path}/assets');
-    if (!await staticFilesDirectory.exists()) {
-      await staticFilesDirectory.create(recursive: true);
-    }
-
-    // Save the file to the assets directory
-    final filePath = '${staticFilesDirectory.path}/$name';
-    await file.copy(filePath);
-    print('File saved at: $filePath');
-
-    // Set up the server URL
-    const hostname = 'localhost';
-    String url = "http${useHttpsUrl ? "s" : ""}://$hostname:$port/";
-
-    // Set up the static file handler
-    final staticFilesHandler = VirtualDirectory(staticFilesDirectory.path)
-      ..allowDirectoryListing = true;
-
-    // Try binding to the server. If port is in use, increment the port number.
-    late HttpServer server;
-    try {
-      if (useHttps) {
-        // Load the certificate and key as strings from the asset bundle
-        final cert = await rootBundle.loadString('assets/cert/localhost.crt');
-        final key = await rootBundle.loadString('assets/cert/localhost.key');
-
-        // Create temporary files to hold the certificate and key
-        final certFile = File('${Directory.systemTemp.path}/localhost.crt')
-          ..writeAsStringSync(cert);
-        final keyFile = File('${Directory.systemTemp.path}/localhost.key')
-          ..writeAsStringSync(key);
-
-        // Create a SecurityContext and load the certificate and key
-        final securityContext = SecurityContext()
-          ..useCertificateChain(certFile.path)
-          ..usePrivateKey(keyFile.path);
-
-        server = await HttpServer.bindSecure(hostname, port, securityContext,
-            shared: true);
-      } else {
-        server = await HttpServer.bind(hostname, port, shared: true);
-      }
-      print('Server is now running at $url');
-    } catch (e) {
-      if (e is SocketException) {
-        // If the port is in use, try a different port (or handle accordingly)
-        print('Port $port is already in use. Trying a different port...');
-        return await hostFile(file, name, port + 1);
-      } else {
-        rethrow; // Rethrow other exceptions
-      }
-    }
-
-    handleRequests(server, staticFilesHandler, filePath);
-    return {"status": true, "port": port, "url": url};
-  } catch (e) {
-    return {"status": false, "error": e.toString()};
-  }
-}
-
-void handleRequests(HttpServer server, dynamic staticFilesHandler, String filePath) async {
-  await for (final request in server) {
-    try {
-      print('incoming request: ${request.uri}');
-
-      request.response
-        ..headers.add('Access-Control-Allow-Origin', '*')
-        ..headers.add(
-            'Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        ..headers.add('Access-Control-Allow-Headers', '*')
-        ..headers.add('Access-Control-Allow-Credentials', 'true');
-
-      if (request.method == 'OPTIONS') {
-        print("outgoing options: ${request.uri}");
-        printResponse(true, request, null, "options");
-        request.response.statusCode = HttpStatus.ok;
-        await request.response.close();
-      } else {
-        final file = File(filePath);
-        if (await file.exists()) {
-          print('outgoing serve: ${request.uri}');
-          printResponse(true, request, null, "serve");
-          staticFilesHandler.serveRequest(request);
-        } else {
-          print('file not found: ${request.uri}');
-          printResponse(false, request, "404", "serve");
-          request.response
-            ..statusCode = HttpStatus.notFound
-            ..write('404');
-          await request.response.close();
-        }
-      }
-    } catch (e) {
-      print("unable to handle incoming request from ${request.uri}");
-      printResponse(false, request, e.toString(), "generic");
-      request.response
-        ..statusCode = HttpStatus.internalServerError
-        ..write('500');
-      await request.response.close();
-    }
-  }
-}
-
-void printResponse(bool success, request, String? error, String type) {
-  if (success) {
-    print("$type request successful: ${request.uri}");
-  } else {
-    print("$type request unsuccessful: ${request.uri}${error != null ? ": ${error}" : ""}");
-  }
 }
 
 Future<File> writeStringToFile(String content, String extension) async {
@@ -444,4 +325,25 @@ String resizeImage(String base64String, Map sizes) {
   Uint8List resizedImageBytes = Uint8List.fromList(img.encodePng(resizedImage));
   String resizedBase64String = base64Encode(resizedImageBytes);
   return resizedBase64String;
+}
+
+Future<bool> openPwa(BuildContext context, Map data) async {
+  String url = "${baseUrl.toString()}?data=${jsonEncode(data)}";
+  bool success = false;
+  try {
+    await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    print("launched url: $url");
+    success = true;
+  } catch (e) {
+    print("error with url: $e");
+    showAlertDialogue(context, "Unable to launch URL",
+        "Unable to launch URL: $url", false, {"show": true, "text": url});
+    success = false;
+  }
+
+  print("$url: $success");
+  return success;
 }

@@ -318,8 +318,10 @@ class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = (screenWidth / 220).floor();
+    int crossAxisCount = (screenWidth / 180).floor();
     crossAxisCount = crossAxisCount < 1 ? 1 : crossAxisCount;
+    print("crossAxisCount: $crossAxisCount");
+
     int? draggedIndex;
     data = actions + items;
 
@@ -403,65 +405,67 @@ class _HomeState extends State<Home> {
   Widget _buildGridTile(int mode, int index, List data, Map item) {
     return Container(
       width: 120,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
       child: Stack(
         children: [
           Card(
             elevation: 3,
-            child: InkWell(
-              onTap: () async {
-                items = await itemAction(items, item, item["id"], index);
-                refresh(items);
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(height: mode == 2 ? 12 : 0),
-                    circleAvatar2(
-                        getIconFromInput(
-                            item["icon"] ?? Icons.question_mark, 48),
-                        24),
-                    SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                      child: Text(
-                        item["title"],
-                        style: TextStyle(
-                          fontSize: 16,
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: InkWell(
+                onTap: () async {
+                  items = await itemAction(items, item, item["id"], index);
+                  refresh(items);
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(height: mode == 2 ? 12 : 0),
+                      circleAvatar2(
+                          getIconFromInput(
+                              item["icon"] ?? Icons.question_mark, 48),
+                          24),
+                      SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                        child: Text(
+                          item["title"],
+                          style: TextStyle(
+                            fontSize: 16,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: mode == 2 ? 12 : 4),
-                    if (mode != 2)
-                      Column(
-                        children: [
-                          if (item.containsKey("url"))
+                      SizedBox(height: mode == 2 ? 12 : 4),
+                      if (mode != 2)
+                        Column(
+                          children: [
+                            if (item.containsKey("url"))
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 6.0),
+                                child: Text(
+                                  item["url"],
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            SizedBox(height: 4),
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 6.0),
                               child: Text(
-                                item["url"],
+                                item["desc"],
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 14,
                                 ),
                               ),
                             ),
-                          SizedBox(height: 4),
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 6.0),
-                            child: Text(
-                              item["desc"],
-                              style: TextStyle(
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

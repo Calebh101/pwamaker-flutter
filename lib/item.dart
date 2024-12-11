@@ -1,12 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:personal/dialogue.dart';
 import 'package:personal/functions.dart';
 import 'package:pwamaker/util.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
 
 class ItemPage extends StatefulWidget {
   final Map item;
@@ -42,7 +39,10 @@ class _ItemPageState extends State<ItemPage> {
           child: Center(
             child: Column(
               children: [
-                circleAvatar2(getIconFromInput(widget.item["icon"] ?? Icons.question_mark, 96), 48),
+                circleAvatar2(
+                    getIconFromInput(
+                        widget.item["icon"] ?? Icons.question_mark, 96),
+                    48),
                 SizedBox(width: 12),
                 Text(
                   widget.item["title"],
@@ -58,7 +58,8 @@ class _ItemPageState extends State<ItemPage> {
                       openUrlConf(context, Uri.parse(widget.item["url"]));
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0, vertical: 6.0),
                       child: Text(
                         removeHttpPrefix(widget.item["url"]),
                         style: TextStyle(
@@ -70,7 +71,8 @@ class _ItemPageState extends State<ItemPage> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8.0, vertical: 12.0),
                   child: Text(
                     widget.item["desc"],
                   ),
@@ -80,20 +82,8 @@ class _ItemPageState extends State<ItemPage> {
                   children: [
                     TextButton(
                       onPressed: () async {
-                        final directory = await getApplicationDocumentsDirectory();
-                        final file = File('${directory.path}/data.json');
-                        File file2 = await file.writeAsString(jsonEncode(widget.item));
-                
-                        try {
-                          await Share.shareXFiles([XFile(file2.path)], text: '${widget.item["name"]}');
-                        } catch (e) {
-                          try {
-                            print("Unable to Share.shareXFiles: falling back on Share.share: $e");
-                            await Share.share(jsonEncode(widget.item), subject: "CarbCalc foods");
-                          } catch (e2) {
-                            print("Unable to Share.share: $e2");
-                          }
-                        }
+                        shareTextFile(true, "${widget.item["title"]} PWA",
+                            jsonEncode(widget.item), "json");
                       },
                       child: Row(
                         children: [

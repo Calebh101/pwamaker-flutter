@@ -33,7 +33,7 @@ dependencies:
 
   personal:
     git:
-      url: https://github.com/Calebh101/localpkg-flutter
+      url: https://github.com/Calebh101/localpkg-flutter.git
       ref: main
 
   url_launcher: ^6.3.1
@@ -60,6 +60,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
